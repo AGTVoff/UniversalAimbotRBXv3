@@ -1,0 +1,159 @@
+-- Chargement de Fluent UI
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+-- Création de la fenêtre
+local Window = Fluent:CreateWindow({
+    Title = "AGTV Aimbot",
+    SubTitle = "discord.gg/Qq36NvRjfm",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.Insert
+})
+
+-- Création des onglets
+local AimbotTab = Window:AddTab({ Title = "Aimbot", Icon = "target" })
+local VisualTab = Window:AddTab({ Title = "Visual", Icon = "eye" })
+
+-- Variables
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+local aimbotEnabled = false
+local smoothness = 5
+local fovSize = 100
+local showFOV = true
+local teamCheckEnabled = false  -- Variable pour le Team Check
+
+-- Cercle FOV
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 2
+fovCircle.NumSides = 100
+fovCircle.Radius = fovSize
+fovCircle.Filled = false
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Transparency = 1
+fovCircle.Visible = showFOV
+
+-- Trouver la cible la plus proche dans le FOV, avec vérification de l'équipe si activée
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = fovSize
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            -- Vérification du Team Check
+            if teamCheckEnabled and player.Team == LocalPlayer.Team then
+                -- Exclure les joueurs de la même équipe
+                continue
+            end
+
+            local head = player.Character.Head.Position
+            local screenPos, onScreen = Camera:WorldToViewportPoint(head)
+            if onScreen then
+                local distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+-- Mouvement de la souris lisse vers la cible
+local function aimAt(target)
+    local head = target.Character and target.Character:FindFirstChild("Head")
+    if head then
+        local screen = Camera:WorldToScreenPoint(head.Position)
+        local delta = (Vector2.new(screen.X, screen.Y) - Vector2.new(Mouse.X, Mouse.Y)) / smoothness
+        mousemoverel(delta.X, delta.Y)
+    end
+end
+
+-- === AIMBOT TAB ===
+
+-- Toggle Aimbot
+AimbotTab:AddToggle("enableAimbot", {
+    Title = "Enable Aimbot",
+    Default = false,
+    Callback = function(state)
+        aimbotEnabled = state
+    end
+})
+
+-- Slider Smoothness
+AimbotTab:AddSlider("smoothnessSlider", {
+    Title = "Smoothness",
+    Description = "Rend le mouvement plus fluide",
+    Default = 5,
+    Min = 1,
+    Max = 20,
+    Rounding = 1,
+    Callback = function(val)
+        smoothness = val
+    end
+})
+
+-- Toggle Team Check
+AimbotTab:AddToggle("teamCheck", {
+    Title = "Team Check",
+    Default = false,
+    Callback = function(state)
+        teamCheckEnabled = state
+    end
+})
+
+-- === VISUAL TAB ===
+
+-- Toggle Show FOV
+VisualTab:AddToggle("showFOV", {
+    Title = "Show FOV",
+    Default = true,
+    Callback = function(val)
+        showFOV = val
+        fovCircle.Visible = val
+    end
+})
+
+-- Slider FOV Size
+VisualTab:AddSlider("fovSlider", {
+    Title = "FOV Size",
+    Description = "Détermine la portée de l'aimbot",
+    Default = 100,
+    Min = 50,
+    Max = 500,
+    Rounding = 0,
+    Callback = function(val)
+        fovSize = val
+        fovCircle.Radius = val
+    end
+})
+
+-- Affichage du message au lancement
+Fluent:Notify({
+    Title = "Universal Aimbot by AGTV v3.1 Bêta",
+    Content = "xeno-solution  discord.gg/Qq36NvRjfm",
+    Duration = 10
+})
+
+-- Mise à jour en continu
+RunService.RenderStepped:Connect(function()
+    fovCircle.Position = Vector2.new(Mouse.X, Mouse.Y)
+    fovCircle.Visible = showFOV
+    fovCircle.Radius = fovSize
+
+    if not aimbotEnabled or not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then return end
+
+    local target = getClosestPlayer()
+    if target then
+        aimAt(target)
+    end
+end)
